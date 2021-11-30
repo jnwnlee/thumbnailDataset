@@ -3,3 +3,8 @@ pytorch==1.10.0
 torchvision==0.11.1
 matplotlib==3.4.3
 pandas==1.3.4
+tqdm
+
+# $ conda install -c conda-forge accimage
+# or refer to
+# https://gist.github.com/brhcriteo/f659c2eecd7f4a45b12a6988559865a7

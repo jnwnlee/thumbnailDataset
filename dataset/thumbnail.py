@@ -7,6 +7,7 @@ import os.path
 from typing import Any, Callable, cast, Dict, List, Optional, Tuple
 
 import pandas as pd
+from tqdm import tqdm
 
 def has_file_allowed_extension(filename: str, extensions: Tuple[str, ...]) -> bool:
     """Checks if a file is an allowed extension.
@@ -20,6 +21,21 @@ def has_file_allowed_extension(filename: str, extensions: Tuple[str, ...]) -> bo
     """
     return filename.lower().endswith(extensions)
 
+def pil_loader(path: str) -> Image.Image:
+    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
+    with open(path, 'rb') as f:
+        img = Image.open(f)
+        return img.convert('RGB')
+
+
+def accimage_loader(path: str) -> Any:
+    import accimage
+    try:
+        return accimage.Image(path)
+    except IOError:
+        # Potentially a decoding problem, fall back to PIL.Image
+        return pil_loader(path)
+
 def default_loader(path: str) -> Any:
     from torchvision import get_image_backend
     if get_image_backend() == 'accimage':
@@ -29,14 +45,15 @@ def default_loader(path: str) -> Any:
 
 # revising torchvision.datasets.DatasetFolder 
 class ThumbnailDataset(VisionDataset):
-    def __init__(self, root, loader, extensions=None, transform=None,
+    def __init__(self, root, loader=default_loader, extensions=None, transform=None,
                  target_transform=None, is_valid_file=None):
         super(ThumbnailDataset, self).__init__(root, transform=transform,
                                             target_transform=target_transform)
+        self.root = root
         classes = [0, 1]
         class_to_idx = {'2': 1, '1': 0, '0': 0}
-        samples = self.make_dataset(self.root, class_to_idx, extensions, is_valid_file)
-        # TODO: 아래 source code 보면서 고치기
+        samples = self.make_dataset(self.root, self.root+'/totalList.csv', class_to_idx, extensions, is_valid_file)
+
         if len(samples) == 0:
             msg = "Found 0 files in subfolders of: {}\n".format(self.root)
             if extensions is not None:
@@ -96,10 +113,10 @@ class ThumbnailDataset(VisionDataset):
     def __len__(self):
         return len(self.samples)
 
-    def split_idx(self, ratio):
+    def split_idx(self, ratio, seed=0):
         if not (type(ratio) == list or type(ratio) == tuple):
             raise TypeError('ratio must be a list or tuple')
-        # TODO: finish
+
         tags, _ = self._find_tags(self.root)
 
         tag_to_idx = {tag: [] for tag in tags}
@@ -108,14 +125,18 @@ class ThumbnailDataset(VisionDataset):
         
         dataset_idx = {key: [] for key in ['train', 'val', 'test']}
         for indices in tag_to_idx.values():
-            dataset_idx['train'] += indices[ : np.floor(len(indices)*ratio[0])]
-            dataset_idx['val'] += indices[np.floor(len(indices)*ratio[0]) : np.floor(len(indices)*(ratio[0]+ratio[1]))]
-            dataset_idx['test'] += indices[np.floor(len(indices)*(ratio[0]+ratio[1])) : ]
+            split_points = list(map(np.floor, [len(indices) * ratio[0], len(indices) * (ratio[0] + ratio[1])]))
+            split_points = list(map(int, split_points))
+
+            indices = np.random.RandomState(seed=seed).permutation(indices).tolist()
+            dataset_idx['train'] += indices[ : split_points[0]]
+            dataset_idx['val'] += indices[split_points[0] : split_points[1]]
+            dataset_idx['test'] += indices[split_points[1] : ]
 
         return dataset_idx
     
-    @staticmethod
-    def make_dataset(self,
+    # @staticmethod
+    def make_dataset( self,
         directory: str,
         csv_directory: str,
         class_to_idx: Dict[str, int],
@@ -151,10 +172,10 @@ class ThumbnailDataset(VisionDataset):
         """
 
         directory = os.path.expanduser(directory)
-        csv_directory = os.path.expanduser(directory)
+        csv_directory = os.path.expanduser(csv_directory)
 
         df = pd.read_csv(csv_directory)
-        df = df['id', 'tag', 'OR']
+        df = df[['id', 'tag', 'OR']]
 
         if class_to_idx is None:
             raise ValueError("The class_to_idx parameter cannot be None.")
@@ -171,6 +192,7 @@ class ThumbnailDataset(VisionDataset):
             def is_valid_file(x: str) -> bool:
                 return has_file_allowed_extension(x, cast(Tuple[str, ...], extensions))
 
+        print('-'*5 + 'Making Dataset...' + '-'*5)
         is_valid_file = cast(Callable[[str], bool], is_valid_file)
 
         instances = []
@@ -190,21 +212,20 @@ class ThumbnailDataset(VisionDataset):
         #                 if target_class not in available_classes:
         #                     available_classes.add(target_class)
         tags, tag_to_idx = self._find_tags(directory)
-        for root, _, fnames in sorted(os.walk(directory, followlinks=True)):
+        for root, _, fnames in tqdm(sorted(os.walk(directory, followlinks=True))):
             for fname in sorted(fnames):
                 if is_valid_file(fname):
-                    if not any(df['id'].isin(fname)):
+                    fname_wo_ext = '.'.join(fname.split('.')[:-1])
+                    if not str(fname_wo_ext) in df['id'].tolist():
                         raise FileNotFoundError(str(fname)+' not in csv list.')
                     else:
-                        row = df.loc[df['id'] == fname]
+                        row = df.loc[df['id'] == fname_wo_ext]
                         path = os.path.join(root, fname)
-                        item = path, class_to_idx[row['OR']], row['tag']
+                        item = path, class_to_idx[str(row['OR'].values[0])], row['tag'].values[0]
                         instances.append(item)
 
-                        if row['tag'] not in available_tags:
-                            available_tags.add(row['tag'])
-
-
+                        if row['tag'].values[0] not in available_tags:
+                            available_tags.add(row['tag'].values[0])
 
         empty_tags = set(tag_to_idx.keys()) - available_tags
         if empty_tags:
