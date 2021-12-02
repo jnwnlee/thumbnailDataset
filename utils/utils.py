@@ -9,9 +9,9 @@ def imshow(inp, title=None):
     std = np.array([0.229, 0.224, 0.225])
     inp = std * inp + mean
     inp = np.clip(inp, 0, 1)
-    plt.imshow(inp)
     if title is not None:
         plt.title(title)
+    plt.imshow(inp)
     plt.pause(0.001)  # pause a bit so that plots are updated
 
 

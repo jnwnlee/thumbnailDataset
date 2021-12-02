@@ -3,18 +3,18 @@ import  torch
 import time
 import copy
 from tqdm import tqdm
+import wandb
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler,
-                dataset_sizes, device='cpu', num_epochs=25):
+                dataset_sizes, device='cpu', num_epochs=25, wandb_log=False):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
+    best_loss = 100.0
 
     print('-'*5 + 'Training the model' + '-'*5)
     for epoch in tqdm(range(num_epochs)):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
 
         # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
@@ -57,18 +57,31 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler,
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
+            if phase == 'train':
+                train_loss = epoch_loss
+                train_acc = epoch_acc
+                if wandb_log:
+                    wandb.watch(model)
+            elif phase == 'val':
+                val_loss = epoch_loss
+                val_acc = epoch_acc
 
             # deep copy the model
-            if phase == 'val' and epoch_acc > best_acc:
-                best_acc = epoch_acc
+            if phase == 'val' and epoch_loss < best_loss:
+                best_loss = epoch_loss
                 best_model_wts = copy.deepcopy(model.state_dict())
 
-        print()
+        if wandb_log:
+            wandb.log({'train_loss': train_loss,
+                       'val_loss': val_loss,
+                       'train_acc': train_acc,
+                       'val_acc': val_acc,
+                       'best_val_loss': best_loss})
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}'.format(best_acc))
+    print('Best val Loss: {:4f}'.format(best_loss))
 
     # load best model weights
     model.load_state_dict(best_model_wts)

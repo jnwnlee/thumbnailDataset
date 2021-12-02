@@ -122,16 +122,23 @@ class ThumbnailDataset(VisionDataset):
         tag_to_idx = {tag: [] for tag in tags}
         for idx, tag in enumerate(self.tags):
             tag_to_idx[tag].append(idx)
-        
-        dataset_idx = {key: [] for key in ['train', 'val', 'test']}
+
+        dataset_name = ['train', 'val', 'test'] if len(ratio)==3 else ['train', 'val']
+        dataset_idx = {key: [] for key in dataset_name}
         for indices in tag_to_idx.values():
-            split_points = list(map(np.floor, [len(indices) * ratio[0], len(indices) * (ratio[0] + ratio[1])]))
+            if len(ratio)==3:
+                split_points = list(map(np.floor, [len(indices) * ratio[0], len(indices) * (ratio[0] + ratio[1])]))
+            else:
+                split_points = list(map(np.floor, [len(indices) * ratio[0]]))
             split_points = list(map(int, split_points))
 
             indices = np.random.RandomState(seed=seed).permutation(indices).tolist()
             dataset_idx['train'] += indices[ : split_points[0]]
-            dataset_idx['val'] += indices[split_points[0] : split_points[1]]
-            dataset_idx['test'] += indices[split_points[1] : ]
+            if len(ratio)==3:
+                dataset_idx['val'] += indices[split_points[0] : split_points[1]]
+                dataset_idx['test'] += indices[split_points[1] : ]
+            else:
+                dataset_idx['val'] += indices[split_points[0] : ]
 
         return dataset_idx
     
