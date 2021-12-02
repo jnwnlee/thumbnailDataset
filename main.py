@@ -143,7 +143,7 @@ if __name__ == '__main__':
     parser.add_argument('-ext', '--image_extensions',
                         default=('.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp'),
                         type=tuple, help='tuple of image extensions.')
-    # TODO: add sweep(x) wandb(o) option - log always...
+
     parser.add_argument('-w', '--wandb_log', default=True, type=lambda x: x.lower() in ['true', '1'],
                         help='whether to log in wandb.')
 

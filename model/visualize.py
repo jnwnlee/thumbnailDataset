@@ -1,6 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 import os
+import wandb
 
 from utils.utils import imshow
 
@@ -46,3 +47,5 @@ def visualize_model(model, dataloaders, class_names, args, device='cpu', num_ima
         #fig.subplots_adjust(top=0.8)
         # plt.suptitle(str(label_list) + str(tag_list), y=0.98)
         plt.savefig(fname)
+        if args.wandb_log:
+            wandb.log({"pred": fig})

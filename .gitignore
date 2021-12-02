@@ -131,3 +131,4 @@ dmypy.json
 # thumbnail dataset
 data
 wandb
+model/weights
