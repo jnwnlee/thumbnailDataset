@@ -18,8 +18,8 @@ import sklearn.model_selection
 import PIL
 
 from utils.utils import imshow
-from model.train import train_multilabel, train_multiclass
-from model.visualize import visualize_model, visualize_confusion_matrix
+from model.train import train_model
+from model.visualize import visualize_model
 from model.resnet50 import resnet50
 
 def is_valid_image(filepath):
@@ -100,8 +100,6 @@ def main(args):
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
-    if args.task not in ['multilabel', 'multiclass']:
-        raise ValueError(f'{args.task} is type {type(args.task)}')
     data_dir = args.data_dir
     seed = args.seed
     batch_size = args.batch_size
@@ -110,9 +108,8 @@ def main(args):
     thumbnail_dataset = torchvision.datasets.ImageFolder(root=data_dir, transform=data_transform,
                                                          is_valid_file=is_valid_image) ### jpg PIL.UnidentifiedImageError
                                                          # extensions=IMG_EXTENSIONS)
-    if args.task == 'multilabel':
-        target_transform = TargetTransform(thumbnail_dataset.classes, thumbnail_dataset.class_to_idx)
-        thumbnail_dataset.target_transform = target_transform.target_transformation
+    target_transform = TargetTransform(thumbnail_dataset.classes, thumbnail_dataset.class_to_idx)
+    thumbnail_dataset.target_transform = target_transform.target_transformation
 
 
     dataset_name = ['train', 'val']
@@ -120,8 +117,7 @@ def main(args):
     dataset_idx = {}
     dataset_idx['train'], dataset_idx['val'] = sklearn.model_selection.train_test_split(
                                 list(range(len(thumbnail_dataset.targets))),
-                                test_size=split_ratio[1], random_state=0,
-                                stratify=thumbnail_dataset.targets)
+                                test_size=split_ratio[1], stratify=thumbnail_dataset.targets)
 
     image_datasets = {key: torch.utils.data.Subset(thumbnail_dataset, dataset_idx[key])
                         for key in dataset_name}
@@ -133,67 +129,61 @@ def main(args):
                                                  shuffle=True, num_workers=8)
                   for x in dataset_name}
     dataset_sizes = {x: len(image_datasets[x]) for x in dataset_name}
-    class_names = thumbnail_dataset.classes
+    class_names = target_transform.classes # thumbnail_dataset.classes
     print('Classification task: ', class_names)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
     print('device: ', device)
     if not torch.cuda.is_available():
-        print('Not using cuda!!!')
+        print('Not using cuda!!!!!!!!!!!!!!!!!!!')
+
+    # print('thumbnail_dataset.samples[5]', thumbnail_dataset.samples[5])
+    # print('thumbnail_dataset.targets[5]', thumbnail_dataset.targets[5])
+    #
+    # print("image_datasets['train'][0]", image_datasets['train'][0])
+    # print("image_datasets['val'][0]", image_datasets['val'][0])
+    # print("image_datasets['test'][0]", image_datasets['test'][0]) if len(dataset_name) == 3 else None
+    # print('dataset_sizes', dataset_sizes)
+    # print('class_names', class_names)
+    # print('device', device)
+    # print('learning type', args.learning_type)
 
     # Get a batch of training data
     inputs, classes = next(iter(dataloaders['train']))
 
     # Make a grid from batch
-    # out = torchvision.utils.make_grid(inputs)
+    out = torchvision.utils.make_grid(inputs)
     # visualize
     # imshow(out, title=str([class_names[x] for x in classes]))
 
     # 'og', 'transfer', 'finetune'
     model_ft = resnet50(args.learning_type, class_names, device)
 
-    if args.task == 'multilabel':
-        criterion = nn.BCELoss() # nn.MultiLabelSoftMarginLoss()
-    elif args.task == 'multiclass':
-        criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCELoss() # nn.CrossEntropyLoss() nn.MultiLabelSoftMarginLoss()
 
     # Observe that all parameters are being optimized
-    # optim.SGD(model_ft.parameters(), lr=args.lr, momentum=0.9)
-    optimizer_ft = optim.AdamW(model_ft.parameters(),
-                                lr=args.lr, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.2)
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=args.lr, momentum=0.9)
 
     # Decay LR by a factor of 0.1 every 7 epochs
-    # TODO: early stopping patience 20
-    # lr_scheduler.StepLR(optimizer_ft, args.step_size, gamma=0.1)
-    exp_lr_scheduler = lr_scheduler.CosineAnnealingWarmRestarts(optimizer_ft,
-                                                                T_0=10, T_mult=1, eta_min=0, last_epoch=-1)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=args.step_size, gamma=0.1)
 
-    if args.task == 'multilabel':
-        model_ft = train_multilabel(model_ft, dataloaders, criterion, optimizer_ft, exp_lr_scheduler,
-                         dataset_sizes, device, num_epochs=args.n_epochs, wandb_log=args.wandb_log,
-                         class_names=class_names)
-    elif args.task == 'multiclass':
-        model_ft = train_multiclass(model_ft, dataloaders, criterion, optimizer_ft, exp_lr_scheduler,
-                               dataset_sizes, device, num_epochs=args.n_epochs, wandb_log=args.wandb_log,
-                               early_stop_patience=20)
+    model_ft = train_model(model_ft, dataloaders, criterion, optimizer_ft, exp_lr_scheduler,
+                           dataset_sizes, device, num_epochs=args.n_epochs, wandb_log=args.wandb_log)
 
 
-    fname = ['['+data_dir.split('/')[-1]+']', 'ckpt', args.task, args.learning_type, 'batch', str(args.batch_size),
-             'n_epochs', str(args.n_epochs), 'lr', str(args.lr), 'step_size', str(args.step_size),
-             'seed', str(args.seed)]
+    fname = ['['+data_dir.split('/')[-1]+']', 'ckpt', args.learning_type, 'batch', str(args.batch_size), 'n_epochs', str(args.n_epochs),
+             'lr', str(args.lr), 'step_size', str(args.step_size), 'seed', str(args.seed)]
     fname = '_'.join(fname) + '.pt'
     torch.save(model_ft.state_dict(), os.path.join('model/weights/crawl/', fname))
     if args.wandb_log:
         wandb.save(os.path.join('model/weights/crawl/', 'ckpt*'))
 
-    visualize_model(model_ft, dataloaders['val'], class_names, args, device, data_dir, task=args.task, num_images=20)
-    if args.task == 'multiclass':
-        visualize_confusion_matrix(model_ft, dataloaders['val'], class_names, args, device, data_dir)
+    visualize_model(model_ft, dataloaders, class_names, args, device, data_dir, num_images=20)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Thumbnail dataset image classification.')
 
-    parser.add_argument('-d', '--data_dir', default='/home/thumbnailDataset_unsplash_resize', # /media/daftpunk2/home/seungheon/thumbnailDataset_test
+    parser.add_argument('-d', '--data_dir', default='/media/daftpunk2/home/seungheon/thumbnailDataset_google',
                         type=str,
                         help='path to the dataset.')
     parser.add_argument('-l', '--learning_type', default='finetune', choices=['og', 'transfer', 'finetune'],
@@ -202,10 +192,10 @@ if __name__ == '__main__':
                         help='ratio for train/validation(/test) dataset splitting.')
     parser.add_argument('-b', '--batch_size', default=16, type=int,
                         help='batch size for training.')
-    parser.add_argument('-e', '--n_epochs', default=50
+    parser.add_argument('-e', '--n_epochs', default=25
                         , type=int,
                         help='number of epochs for training.')
-    parser.add_argument('-lr', '--lr', default=1e-5, type=float,
+    parser.add_argument('-lr', '--lr', default=0.01, type=float,
                         help='learning rate for training optimizer.')
     parser.add_argument('-step', '--step_size', default=7, type=int,
                         help='step size for training scheduler.')
@@ -217,8 +207,5 @@ if __name__ == '__main__':
 
     parser.add_argument('-w', '--wandb_log', default=True, type=lambda x: x.lower() in ['true', '1'],
                         help='whether to log in wandb.')
-
-    parser.add_argument('-t', '--task', default='multiclass', choices=['multiclass', 'multilabel'],
-                        help='define the task of training: \'multilabel\' or \'multiclass\' classification')
 
     main(parser.parse_args())

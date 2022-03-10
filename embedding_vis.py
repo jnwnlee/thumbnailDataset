@@ -4,10 +4,10 @@ from tqdm import tqdm
 
 # Create a dataset from a directory of images
 dataset = fo.Dataset.from_dir(
-                    dataset_dir='/media/daftpunk2/home/seungheon/thumbnailDataset_unsplash/',
+                    dataset_dir='/media/daftpunk2/home/seungheon/thumbnailDataset_flickr/',
                     dataset_type=fo.types.ImageClassificationDirectoryTree,
-                    name='thumbnailDataset_unsplash'
-            )
+                    name='thumbnailDataset_flickr'
+                )
 
 import fiftyone.zoo as foz
 import torch
@@ -15,13 +15,13 @@ import fiftyone.brain as fob
 
 # Load a resnet from the model zoo
 model = foz.load_zoo_model("resnet50-imagenet-torch")
-
+model.to(torch.device("cuda:1"))
 # Verify that the model exposes embeddings
 print('model.has_embeddings', model.has_embeddings)
 # True
 
 # Compute embeddings for each image
-embeddings = dataset.compute_embeddings(model, gpus=torch.cuda.device_count())
+embeddings = dataset.compute_embeddings(model, gpus=torch.device("cuda:1")) # torch.cuda.device_count()
 # print(embeddings.shape)
 # 10000 x 2048
 
@@ -46,7 +46,7 @@ plot = results.visualize(
     axis_equal=True,
 )
 plot.show(height=512)
-plot.save('./embedding_thumbnailDataset_unsplash.jpg')
+plot.save('./embedding_thumbnailDataset_flickr.png')
 
 # Attach plot to session
 session.plots.attach(plot)
