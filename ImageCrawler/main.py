@@ -427,11 +427,11 @@ if __name__ == '__main__':
                         help='Download full resolution image instead of thumbnails (slow)')
     parser.add_argument('--face', type=str, default='false', help='Face search mode')
     parser.add_argument('--ccl', type=str, default='true', help='CCL(Creative Commons License) search mode')
-    parser.add_argument('--no_gui', type=str, default='false',
+    parser.add_argument('--no_gui', type=str, default='auto',
                         help='No GUI mode. Acceleration for full_resolution mode. '
                              'But unstable on thumbnail mode. '
                              'Default: "auto" - false if full=false, true if full=true')
-    parser.add_argument('--limit', type=int, default=10,
+    parser.add_argument('--limit', type=int, default=5000,
                         help='Maximum count of images to download per site. (0: infinite)')
     parser.add_argument('--proxy-list', type=str, default='',
                         help='The comma separated proxy list like: "socks://127.0.0.1:1080,http://127.0.0.1:1081". '
