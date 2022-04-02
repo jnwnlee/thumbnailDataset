@@ -309,7 +309,7 @@ class AutoCrawler:
 
             print('Downloading images from collected links... {} from {}'.format(keyword, site_name))
             self.download_images(keyword, links, site_name, max_count=self.limit)
-            Path('{}/{}_done'.format(self.download_path, keyword.replace('"', '')).touch()
+            Path('{}/{}_done'.format(self.download_path, keyword.replace('"', ''))).touch()
 
             print('Done {} : {}'.format(site_name, keyword))
 
