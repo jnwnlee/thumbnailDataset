@@ -309,7 +309,7 @@ class AutoCrawler:
 
             print('Downloading images from collected links... {} from {}'.format(keyword, site_name))
             self.download_images(keyword, links, site_name, max_count=self.limit)
-            # Path('{}/{}/{}_done'.format(self.download_path, keyword.replace('"', ''), site_name)).touch()
+            Path('{}/{}_done'.format(self.download_path, keyword.replace('"', '')).touch()
 
             print('Done {} : {}'.format(site_name, keyword))
 
@@ -328,7 +328,7 @@ class AutoCrawler:
             dir_name = '{}/{}'.format(self.download_path, keyword)
             google_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'google_done'))
             naver_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'naver_done'))
-            unsplash_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'unsplash_done'))
+            unsplash_done = os.path.exists(os.path.join(os.getcwd(), self.download_path, keyword+'_done'))
             flickr_done = os.path.exists(os.path.join(os.getcwd(), dir_name, 'flickr_done'))
             if google_done and naver_done and unsplash_done and flickr_done and self.skip:
                 print('Skipping done task {}'.format(dir_name))
