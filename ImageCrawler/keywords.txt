@@ -45,7 +45,7 @@ funny
 documentary
 horror
 fast
-ambiental
+ambient
 groovy
 corporate
 travel
