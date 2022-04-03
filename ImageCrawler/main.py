@@ -431,7 +431,7 @@ if __name__ == '__main__':
                         help='No GUI mode. Acceleration for full_resolution mode. '
                              'But unstable on thumbnail mode. '
                              'Default: "auto" - false if full=false, true if full=true')
-    parser.add_argument('--limit', type=int, default=5000,
+    parser.add_argument('--limit', type=int, default=1000,
                         help='Maximum count of images to download per site. (0: infinite)')
     parser.add_argument('--proxy-list', type=str, default='',
                         help='The comma separated proxy list like: "socks://127.0.0.1:1080,http://127.0.0.1:1081". '
