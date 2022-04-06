@@ -24,8 +24,10 @@ emotional
 epic
 romantic
 melancholic
+melancholy
 space
 meditative
+meditation
 calm
 soft
 fun
@@ -35,6 +37,7 @@ deep
 children
 adventure
 summer
+hope
 hopeful
 action
 movie
@@ -46,6 +49,8 @@ documentary
 horror
 fast
 ambient
+ambiental
+groove
 groovy
 corporate
 travel
